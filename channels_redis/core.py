@@ -12,6 +12,7 @@ import types
 import uuid
 
 import aioredis
+from aioredis.sentinel import Sentinel
 import msgpack
 
 from channels.exceptions import ChannelFull
@@ -76,10 +77,12 @@ class ConnectionPool:
         if not (sys.version_info >= (3, 8, 0) and AIOREDIS_VERSION >= (1, 3, 1)):
             kwargs["loop"] = loop
         if self.master_name is None:
-            return await aioredis.create_redis_pool(**kwargs)
+            return await aioredis.from_url(
+                self.host, encoding="utf-8", decode_responses=True
+            )
         else:
             kwargs = {"timeout": 2, **kwargs}  # aioredis default is way too low
-            sentinel = await aioredis.sentinel.create_sentinel(**kwargs)
+            sentinel = Sentinel(self.host, socket_timeout=0.1)
             conn = sentinel.master_for(self.master_name)
             self.sentinel_map[conn] = sentinel
             return conn
